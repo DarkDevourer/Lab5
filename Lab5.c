@@ -7,10 +7,11 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <malloc.h>
 #include <math.h>
+#include "bitmap.h"
+
+void to_bw(int data_size, char *imarr, char *resultarr, int pthread_cnt, int *right_border);
 
 void sobel_filter(char *imarr, char *resultarr, int pthread_cnt, int *right_border);
 
@@ -48,25 +49,43 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	struct stat file_stat;
-	int e = stat(argv[1], &file_stat);
-	if (e == -1)
-	{
-		printf("Some error has occured! %s not found!\n", argv[1]);
-	}
-	int fsize = file_stat.st_size;
-	printf ("%d\n", fsize);
 
-	char *imarr = malloc(fsize);
-	char *resultarr = malloc(fsize);
-	int *right_border = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
+	BITMAPHEADER *header;
+	char *data;
+	load_bitmap(argv[1], &header, &data);
+	/*int *right_border = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
 	for (int i = 0; i < pthread_cnt; i++)
 	{
-		right_border[i] = floor((fsize*(i+1))/pthread_cnt);
+		right_border[i] = floor((header->file_size*(i+1))/pthread_cnt);
 	}
-	right_border[pthread_cnt-1] -= 1;
+	right_border[pthread_cnt-1] -= 1;*/
+	int data_size = header->file_size - header->pixel_data_offset;
+	char *resultarr = (char*)malloc(data_size);
+	printf("%d\n",header->file_size);
+	printf("%d\n",header->bits_per_pixel);
+	printf("%d\n",data_size);
+	printf("%d\n",header->image_size);
+	printf("%d\n",header->pixel_data_offset);
+	printf("%d\n",header->width);
+	printf("%d\n",header->height);
+	printf("%d\n",header->size);
+	to_bw(data_size, data, resultarr, pthread_cnt, NULL);
+
+	save_bitmap(argv[2], header, resultarr);
 
 	return 0;
+}
+
+void to_bw(int data_size, char *imarr, char *resultarr, int pthread_cnt, int *right_border)
+{
+	int pixel_cnt = data_size/3;
+	for (int i = 0; i < pixel_cnt; i++)
+	{
+		char av = (imarr[i*3]+imarr[i*3+1]+imarr[i*3+2])/3;
+		resultarr[i*3] = av;
+		resultarr[i*3+1] = av;
+		resultarr[i*3+2] = av;
+	}
 }
 
 void sobel_filter(char *imarr, char *resultarr, int pthread_cnt, int *right_border)
