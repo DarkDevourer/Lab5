@@ -31,7 +31,7 @@ typedef struct
 
 //Функция считывает динамически выделяет память под header и data и считывает в них .bmp файл
 //Возвращает 0, если успешно
-int load_bitmap(char *filename, BITMAPHEADER **header, char **data)
+int load_bitmap(char *filename, BITMAPHEADER **header, unsigned char **data)
 {
 	int image = open(filename, O_RDONLY);
 	if(image == -1)
@@ -54,7 +54,7 @@ int load_bitmap(char *filename, BITMAPHEADER **header, char **data)
 		return -3;
 	}
 	
-	*data = (char*) malloc((*header)->file_size - sizeof(BITMAPHEADER));
+	*data = (unsigned char*) malloc((*header)->file_size - sizeof(BITMAPHEADER));
 	if(data == NULL)
 	{
 		close(image);
@@ -75,7 +75,7 @@ int load_bitmap(char *filename, BITMAPHEADER **header, char **data)
 	return 0;
 }
 
-int save_bitmap(char *filename, BITMAPHEADER *header, char *data)
+int save_bitmap(char *filename, BITMAPHEADER *header, unsigned char *data)
 {
 	int image = open(filename, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR| S_IWUSR);
 	if (image == -1)

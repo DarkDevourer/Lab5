@@ -11,11 +11,11 @@
 #include <math.h>
 #include "bitmap.h"
 
-void to_bw(int data_size, char *imarr, char *resultarr, int pthread_cnt, int *right_border);
+void to_bw(int data_size, unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border);
 
-void sobel_filter(char *imarr, char *resultarr, int pthread_cnt, int *right_border);
+void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border);
 
-void sobel(char *imarr, char *resultarr, int pthread_number, int left_border, int right_border);
+void sobel(unsigned char *imarr, unsigned char *resultarr, int pthread_number, int left_border, int right_border);
 
 int main(int argc, char *argv[])
 {
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
 
 	BITMAPHEADER *header;
-	char *data;
+	unsigned char *data;
 	load_bitmap(argv[1], &header, &data);
 	/*int *right_border = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
 	for (int i = 0; i < pthread_cnt; i++)
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	}
 	right_border[pthread_cnt-1] -= 1;*/
 	int data_size = header->file_size - header->pixel_data_offset;
-	char *resultarr = (char*)malloc(data_size);
+	unsigned char *resultarr = (unsigned char*)malloc(data_size);
 	printf("%d\n",header->file_size);
 	printf("%d\n",header->bits_per_pixel);
 	printf("%d\n",data_size);
@@ -73,27 +73,30 @@ int main(int argc, char *argv[])
 
 	save_bitmap(argv[2], header, resultarr);
 
-	return 0;
+	return 0;//
 }
 
-void to_bw(int data_size, char *imarr, char *resultarr, int pthread_cnt, int *right_border)
+void to_bw(int data_size, unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border)
 {
 	int pixel_cnt = data_size/3;
 	for (int i = 0; i < pixel_cnt; i++)
 	{
-		char av = (imarr[i*3]+imarr[i*3+1]+imarr[i*3+2])/3;
+		int a=imarr[i*3];
+		int b=imarr[i*3+1];
+		int c=imarr[i*3+2];
+		unsigned char av = (a+b+c)/3;
 		resultarr[i*3] = av;
 		resultarr[i*3+1] = av;
 		resultarr[i*3+2] = av;
 	}
 }
 
-void sobel_filter(char *imarr, char *resultarr, int pthread_cnt, int *right_border)
+void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border)
 {
 
 }
 
-void sobel(char *imarr, char *resultarr, int pthread_number, int left_border, int right_border)
+void sobel(unsigned char *imarr, unsigned char *resultarr, int pthread_number, int left_border, int right_border)
 {
 	float kernelx[3][3] = {{-1, 0, 1},
 						   {-2, 0, 2},
