@@ -11,11 +11,22 @@
 #include <math.h>
 #include "bitmap.h"
 
-void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *right_border);
+void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *end_line);
 
-void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border);
+void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int width, int height);
 
-void sobel(unsigned char *imarr, unsigned char *resultarr, int pthread_number, int left_border, int right_border, int width, int height);
+void *sobel(void *arg);
+
+typedef struct  //структура аргументов функции потока
+{
+	 unsigned char *imarr;
+	 unsigned char *resultarr;
+	 int pthread_number;
+	 int begin_line;
+	 int end_line;
+	 int width;
+	 int height;
+} thread_args;
 
 int main(int argc, char *argv[])
 {
@@ -53,12 +64,12 @@ int main(int argc, char *argv[])
 	BITMAPHEADER *header;
 	unsigned char *data;
 	load_bitmap(argv[1], &header, &data);
-	/*int *right_border = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
+	/*int *end_line = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
 	for (int i = 0; i < pthread_cnt; i++)
 	{
-		right_border[i] = floor((header->file_size*(i+1))/pthread_cnt);
+		end_line[i] = floor((header->file_size*(i+1))/pthread_cnt);
 	}
-	right_border[pthread_cnt-1] -= 1;*/
+	end_line[pthread_cnt-1] -= 1;*/
 	int data_size = header->file_size - header->pixel_data_offset;
 	unsigned char *resultarr = (unsigned char*)malloc(data_size);
 	printf("%d\n",header->file_size);
@@ -70,14 +81,14 @@ int main(int argc, char *argv[])
 	printf("%d\n",header->height);
 	printf("%d\n",header->size);
 	to_bw(data_size, data, pthread_cnt, NULL);
-	sobel(data, resultarr,pthread_cnt,0,0,header->width,header->height);
+	sobel_filter(data, resultarr,pthread_cnt,header->width,header->height);
 
 	save_bitmap(argv[2], header, resultarr);
 
 	return 0;
 }
 
-void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *right_border)
+void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *end_line)
 {
 	int pixel_cnt = data_size/3;
 	for (int i = 0; i < pixel_cnt; i++)
@@ -92,13 +103,64 @@ void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *right_bord
 	}
 }
 
-void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int *right_border)
-{
+void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int width, int height)
+{	int begin_line;
+	int end_line;
+	pthread_t a_thread[pthread_cnt];
+	int res;
+	void *thread_result;
+	thread_args argstr[pthread_cnt];
 
+	for (int i = 0; i < pthread_cnt; i++)
+	{
+		if (i == 0)
+			{
+				begin_line = 1;
+			}
+		else
+			{
+				begin_line = i*floor(height/pthread_cnt);
+			}
+
+		if (i == pthread_cnt - 1)
+			{
+				end_line = height-3;
+			}
+		else
+			{
+				end_line = (i+1)*floor(height/pthread_cnt);
+			}
+
+		argstr[i].imarr = imarr;
+		argstr[i].resultarr = resultarr;
+		argstr[i].pthread_number = i;
+		argstr[i].begin_line = begin_line;
+		argstr[i].end_line = end_line;
+		argstr[i].width = width;
+		argstr[i].height = height;
+		res = pthread_create(&(a_thread[i]), NULL, sobel, (void*)&argstr[i]);
+		if(res !=0)
+		{
+			perror("Thread creation failed!");
+			exit(EXIT_FAILURE);
+		}
+		//printf("I =%d\t Begin = %d\t End = %d\t width = %d\t height = %d\n",argstr[i].pthread_number,argstr[i].begin_line,argstr[i].end_line,argstr[i].width, argstr[i].height);
+	}
+
+	for(int i = pthread_cnt-1; i >= 0; i--)
+	{
+		res = pthread_join(a_thread[i],&thread_result);
+		if (res != 0)
+		{
+			perror("Pthread_join failed");
+			exit(EXIT_FAILURE);
+		}
+	}
 }
 
-void sobel(unsigned char *imarr, unsigned char *resultarr, int pthread_number, int left_border,int right_border, int width, int height)
+void *sobel(void *arg)
 {
+	thread_args argt = *(thread_args*)arg;
 	char sobel_x[3][3] = {{-1, 0, 1},
 						   {-2, 0, 2},
 						   {-1, 0, 1}}; 
@@ -106,20 +168,23 @@ void sobel(unsigned char *imarr, unsigned char *resultarr, int pthread_number, i
 						   {0, 0, 0},
 						   {1, 2, 1}}; 
 
-	for (int x = 1; x < width-1; x++)
-		for (int y = 1; y < height-1; y++)
+
+	for (int x = 1; x < argt.width-1; x++)
+		for (int y = argt.begin_line; y < argt.end_line; y++)
 		{
-			unsigned int pixel_x = (sobel_x[0][0] * imarr[3*(x-1+(y-1)*width)]) + (sobel_x[0][1] * imarr[3*(x+(y-1)*width)]) + (sobel_x[0][2] * imarr[3*(x+1+(y-1)*width)]) +
-			(sobel_x[1][0] * imarr[3*(x-1+(y)*width)]) + (sobel_x[1][1] * imarr[3*(x+(y)*width)]) + (sobel_x[1][2] * imarr[3*(x+1+(y)*width)]) +
-			(sobel_x[2][0] * imarr[3*(x-1+(y+1)*width)]) + (sobel_x[2][1] * imarr[3*(x+(y+1)*width)]) + (sobel_x[2][2] * imarr[3*(x+1+(y+1)*width)]);
+			unsigned int pixel_x = (sobel_x[0][0] * argt.imarr[3*(x-1+(y-1)*argt.width)]) + (sobel_x[0][1] * argt.imarr[3*(x+(y-1)*argt.width)]) + (sobel_x[0][2] * argt.imarr[3*(x+1+(y-1)*argt.width)]) +
+			(sobel_x[1][0] * argt.imarr[3*(x-1+(y)*argt.width)]) + (sobel_x[1][1] * argt.imarr[3*(x+(y)*argt.width)]) + (sobel_x[1][2] * argt.imarr[3*(x+1+(y)*argt.width)]) +
+			(sobel_x[2][0] * argt.imarr[3*(x-1+(y+1)*argt.width)]) + (sobel_x[2][1] * argt.imarr[3*(x+(y+1)*argt.width)]) + (sobel_x[2][2] * argt.imarr[3*(x+1+(y+1)*argt.width)]);
 
-			unsigned int pixel_y = (sobel_y[0][0] * imarr[3*(x-1+(y-1)*width)]) + (sobel_y[0][1] * imarr[3*(x+(y-1)*width)]) + (sobel_y[0][2] * imarr[3*(x+1+(y-1)*width)]) +
-			(sobel_y[1][0] * imarr[3*(x-1+(y)*width)]) + (sobel_y[1][1] * imarr[3*(x+(y)*width)]) + (sobel_y[1][2] * imarr[3*(x+1+(y)*width)]) +
-			(sobel_y[2][0] * imarr[3*(x-1+(y+1)*width)]) + (sobel_y[2][1] * imarr[3*(x+(y+1)*width)]) + (sobel_y[2][2] * imarr[3*(x+1+(y+1)*width)]);
+			unsigned int pixel_y = (sobel_y[0][0] * argt.imarr[3*(x-1+(y-1)*argt.width)]) + (sobel_y[0][1] * argt.imarr[3*(x+(y-1)*argt.width)]) + (sobel_y[0][2] * argt.imarr[3*(x+1+(y-1)*argt.width)]) +
+			(sobel_y[1][0] * argt.imarr[3*(x-1+(y)*argt.width)]) + (sobel_y[1][1] * argt.imarr[3*(x+(y)*argt.width)]) + (sobel_y[1][2] * argt.imarr[3*(x+1+(y)*argt.width)]) +
+			(sobel_y[2][0] * argt.imarr[3*(x-1+(y+1)*argt.width)]) + (sobel_y[2][1] * argt.imarr[3*(x+(y+1)*argt.width)]) + (sobel_y[2][2] * argt.imarr[3*(x+1+(y+1)*argt.width)]);
 			unsigned int mag = sqrt((pixel_x*pixel_x)+(pixel_y*pixel_y));
-			resultarr[3*(x+y*width)] = mag;
-			resultarr[3*(x+y*width)+1] = mag;
-			resultarr[3*(x+y*width)+2] = mag;
+			argt.resultarr[3*(x+y*argt.width)] = mag;
+			argt.resultarr[3*(x+y*argt.width)+1] = mag;
+			argt.resultarr[3*(x+y*argt.width)+2] = mag;
+			//printf("x =%d\t y = %d\t color = %d\n",x,y,mag);
 		}
-
+	//printf("I =%d\t Begin = %d\t End = %d\t width = %d\t height = %d\t, color = %d\n",argt.pthread_number,argt.begin_line,argt.end_line,argt.width, argt.height);
+	pthread_exit(NULL);
 }
