@@ -122,7 +122,7 @@ void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cn
 
 		if (i == pthread_cnt - 1)
 			{
-				end_line = height-3;
+				end_line = height-2;
 			}
 		else
 			{
