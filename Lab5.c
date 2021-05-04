@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <malloc.h>
 #include <math.h>
+#include <time.h>
 #include "bitmap.h"
 
 void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *end_line);
@@ -30,6 +31,7 @@ typedef struct  //структура аргументов функции пот�
 
 int main(int argc, char *argv[])
 {
+	clock_t start = clock();
 	int rpict;
 	int wpict;
 	int pthread_cnt;
@@ -64,27 +66,23 @@ int main(int argc, char *argv[])
 	BITMAPHEADER *header;
 	unsigned char *data;
 	load_bitmap(argv[1], &header, &data);
-	/*int *end_line = malloc(pthread_cnt*sizeof(int)); //хранит правую границу массива, который обрабатывает поток
-	for (int i = 0; i < pthread_cnt; i++)
-	{
-		end_line[i] = floor((header->file_size*(i+1))/pthread_cnt);
-	}
-	end_line[pthread_cnt-1] -= 1;*/
 	int data_size = header->file_size - header->pixel_data_offset;
 	unsigned char *resultarr = (unsigned char*)malloc(data_size);
-	printf("%d\n",header->file_size);
+	/*printf("%d\n",header->file_size);
 	printf("%d\n",header->bits_per_pixel);
 	printf("%d\n",data_size);
 	printf("%d\n",header->image_size);
 	printf("%d\n",header->pixel_data_offset);
 	printf("%d\n",header->width);
 	printf("%d\n",header->height);
-	printf("%d\n",header->size);
+	printf("%d\n",header->size);*/
 	to_bw(data_size, data, pthread_cnt, NULL);
+	clock_t filt = clock();
 	sobel_filter(data, resultarr,pthread_cnt,header->width,header->height);
 
 	save_bitmap(argv[2], header, resultarr);
 
+	printf("Время работы программы = %lu секунд\n Время обработки фильтром собела с %lu потоками = %lu секунд\n",(clock()-start)*1000/CLOCKS_PER_SEC, pthread_cnt, (clock()-filt)*1000/CLOCKS_PER_SEC);
 	return 0;
 }
 
