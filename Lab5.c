@@ -12,7 +12,7 @@
 #include <time.h>
 #include "bitmap.h"
 
-void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *end_line);
+void to_bw(int width, int height, unsigned char *imarr);
 
 void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int width, int height);
 
@@ -76,29 +76,32 @@ int main(int argc, char *argv[])
 	printf("%d\n",header->width);
 	printf("%d\n",header->height);
 	printf("%d\n",header->size);*/
-	to_bw(data_size, data, pthread_cnt, NULL);
+	to_bw(header->width, header->height, data);
 	clock_t filt = clock();
-	sobel_filter(data, resultarr,pthread_cnt,header->width,header->height);
+	sobel_filter(data, resultarr, pthread_cnt,header->width,header->height);
 
 	save_bitmap(argv[2], header, resultarr);
 
-	printf("Время работы программы = %lu секунд\n Время обработки фильтром собела с %lu потоками = %lu секунд\n",(clock()-start)*1000/CLOCKS_PER_SEC, pthread_cnt, (clock()-filt)*1000/CLOCKS_PER_SEC);
+	printf("Время работы программы = %lu миллисекунд\n Время обработки фильтром собела с %d потоками = %lu миллисекунд\n",(clock()-start)*1000/CLOCKS_PER_SEC, pthread_cnt, (clock()-filt)*1000/CLOCKS_PER_SEC);
+	free(header);
+	free(data);
+	free(resultarr);
 	return 0;
 }
 
-void to_bw(int data_size, unsigned char *imarr, int pthread_cnt, int *end_line)
+void to_bw(int width, int height, unsigned char *imarr)
 {
-	int pixel_cnt = data_size/3;
-	for (int i = 0; i < pixel_cnt; i++)
-	{
-		int a=imarr[i*3];
-		int b=imarr[i*3+1];
-		int c=imarr[i*3+2];
-		unsigned char av = (a+b+c)/3;
-		imarr[i*3] = av;
-		imarr[i*3+1] = av;
-		imarr[i*3+2] = av;
-	}
+	for (int x = 0; x < width-1; x++)
+		for (int y = 0; y < height-1; y++)
+		{
+			int a = imarr[3*(x+y*width)];
+			int b = imarr[3*(x+y*width)+1];
+			int c = imarr[3*(x+y*width)+2];
+			unsigned char av = (a+b+c)/3;
+			imarr[3*(x+y*width)] = av;
+			imarr[3*(x+y*width)+1] = av;
+			imarr[3*(x+y*width)+2] = av;
+		}
 }
 
 void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cnt, int width, int height)
@@ -142,7 +145,7 @@ void sobel_filter(unsigned char *imarr, unsigned char *resultarr, int pthread_cn
 			perror("Thread creation failed!");
 			exit(EXIT_FAILURE);
 		}
-		//printf("I =%d\t Begin = %d\t End = %d\t width = %d\t height = %d\n",argstr[i].pthread_number,argstr[i].begin_line,argstr[i].end_line,argstr[i].width, argstr[i].height);
+		
 	}
 
 	for(int i = pthread_cnt-1; i >= 0; i--)
@@ -181,8 +184,6 @@ void *sobel(void *arg)
 			argt.resultarr[3*(x+y*argt.width)] = mag;
 			argt.resultarr[3*(x+y*argt.width)+1] = mag;
 			argt.resultarr[3*(x+y*argt.width)+2] = mag;
-			//printf("x =%d\t y = %d\t color = %d\n",x,y,mag);
 		}
-	//printf("I =%d\t Begin = %d\t End = %d\t width = %d\t height = %d\t, color = %d\n",argt.pthread_number,argt.begin_line,argt.end_line,argt.width, argt.height);
 	pthread_exit(NULL);
 }

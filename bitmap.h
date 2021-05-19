@@ -50,7 +50,7 @@ int load_bitmap(char *filename, BITMAPHEADER **header, unsigned char **data)
 	if(r != sizeof(BITMAPHEADER))
 	{
 		close(image);
-		free(*header);
+		free(header);
 		return -3;
 	}
 	
@@ -58,7 +58,7 @@ int load_bitmap(char *filename, BITMAPHEADER **header, unsigned char **data)
 	if(data == NULL)
 	{
 		close(image);
-		free(*header);
+		free(header);
 		return -3;
 	}
 
@@ -66,8 +66,8 @@ int load_bitmap(char *filename, BITMAPHEADER **header, unsigned char **data)
 	if(r != (*header)->file_size - sizeof(BITMAPHEADER))
 	{
 		close(image);
-		free(*header);
-		free(*data);
+		free(header);
+		free(data);
 		return -5;
 	}
 
@@ -91,13 +91,14 @@ int save_bitmap(char *filename, BITMAPHEADER *header, unsigned char *data)
 		return -2;
 	}
 
-	w = write(image, data, header->file_size - sizeof(BITMAPHEADER));
-	if(w != header->file_size - sizeof(BITMAPHEADER))
+	w = write(image, data, header->file_size - header->pixel_data_offset);
+	if(w != header->file_size - header->pixel_data_offset)
 	{
 		close(image);
 		remove(filename);
 		return -3;
 	}
+	close(image);
 
 	return 0;
 }
